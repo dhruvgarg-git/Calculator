@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculator</title>
+  <style>
+/* ===== Color palettes =====
+   Each palette only sets two "hues" (color angles from 0 to 360).
+   All other colors are calculated from them, so one number
+   changes the whole look of the calculator. */
+:root,
+[data-palette="ocean"]  { --h: 225; --h2: 160; }
+[data-palette="sunset"] { --h: 20;  --h2: 345; }
+[data-palette="forest"] { --h: 152; --h2: 42;  }
+[data-palette="grape"]  { --h: 268; --h2: 320; }
+[data-palette="rose"]   { --h: 342; --h2: 195; }
+
+/* ===== Light theme (default) ===== */
+:root,
+[data-theme="light"] {
+  --bg1: hsl(var(--h) 70% 95%);
+  --bg2: hsl(var(--h2) 65% 92%);
+  --card: hsl(0 0% 100% / 0.85);
+  --screen: hsl(var(--h) 45% 96%);
+  --text: hsl(var(--h) 35% 14%);
+  --muted: hsl(var(--h) 14% 45%);
+  --btn: hsl(0 0% 100%);
+  --btn-hover: hsl(var(--h) 40% 93%);
+  --btn-shadow: 0 2px 6px hsl(var(--h) 40% 30% / 0.10);
+  --function: hsl(var(--h) 55% 92%);
+  --function-text: hsl(var(--h) 65% 38%);
+  --operator: hsl(var(--h) 80% 42%);
+  --operator-2: hsl(var(--h) 85% 50%);
+  --operator-hover: hsl(var(--h) 80% 36%);
+  --on-operator: #ffffff;
+  --active-bg: #ffffff;
+  --equals: hsl(var(--h2) 70% 40%);
+  --equals-2: hsl(var(--h2) 75% 48%);
+  --equals-hover: hsl(var(--h2) 70% 35%);
+  --shadow: 0 24px 60px hsl(var(--h) 50% 35% / 0.18);
+  --border: hsl(var(--h) 30% 100% / 0.8);
+}
+
+/* ===== Dark theme ===== */
+[data-theme="dark"] {
+  --bg1: hsl(var(--h) 40% 8%);
+  --bg2: hsl(var(--h2) 35% 12%);
+  --card: hsl(var(--h) 25% 14% / 0.85);
+  --screen: hsl(var(--h) 30% 9%);
+  --text: hsl(var(--h) 25% 95%);
+  --muted: hsl(var(--h) 14% 62%);
+  --btn: hsl(var(--h) 20% 21%);
+  --btn-hover: hsl(var(--h) 24% 28%);
+  --btn-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --function: hsl(var(--h) 28% 27%);
+  --function-text: hsl(var(--h) 80% 82%);
+  --operator: hsl(var(--h) 90% 66%);
+  --operator-2: hsl(var(--h) 90% 72%);
+  --operator-hover: hsl(var(--h) 90% 74%);
+  --on-operator: hsl(var(--h) 50% 10%);
+  --active-bg: hsl(var(--h) 25% 14%);
+  --equals: hsl(var(--h2) 65% 52%);
+  --equals-2: hsl(var(--h2) 70% 60%);
+  --equals-hover: hsl(var(--h2) 70% 62%);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --border: hsl(var(--h) 30% 30% / 0.5);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, var(--bg1), var(--bg2));
+  background-attachment: fixed;
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* Calculator + history sit side by side */
+.app {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+}
+
+/* ===== Calculator card ===== */
+.calculator {
+  width: 340px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 28px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--muted);
+  letter-spacing: 0.6px;
+}
+
+/* ===== Color theme picker (the little round dots) ===== */
+.palette {
+  display: flex;
+  gap: 7px;
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg,
+    hsl(var(--sh) 85% 55%) 50%,
+    hsl(var(--sh2) 70% 45%) 50%);
+  transition: transform 0.15s;
+}
+
+.swatch:hover {
+  transform: scale(1.15);
+}
+
+.swatch.selected {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.theme-btn {
+  border: none;
+  background: var(--btn);
+  box-shadow: var(--btn-shadow);
+  font-size: 17px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.theme-btn:hover {
+  background: var(--btn-hover);
+  transform: rotate(20deg);
+}
+
+/* ===== Screen ===== */
+.screen {
+  background: var(--screen);
+  border-radius: 20px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+  text-align: right;
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px hsl(var(--h) 40% 20% / 0.08);
+}
+
+.expression {
+  min-height: 22px;
+  color: var(--muted);
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+
+.current {
+  font-size: 40px;
+  font-weight: 600;
+  word-break: break-all;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Keypad (a grid with 4 equal columns) ===== */
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 11px;
+}
+
+.btn {
+  border: none;
+  border-radius: 16px;
+  padding: 19px 0;
+  font-size: 20px;
+  font-weight: 500;
+  font-family: inherit;
+  background: var(--btn);
+  color: var(--text);
+  box-shadow: var(--btn-shadow);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+
+.btn:hover {
+  background: var(--btn-hover);
+}
+
+/* Small "press" effect when clicking */
+.btn:active,
+.btn.pressed {
+  transform: scale(0.93);
+  box-shadow: none;
+}
+
+.btn.function {
+  background: var(--function);
+  color: var(--function-text);
+  font-weight: 600;
+}
+
+.btn.operator {
+  background: linear-gradient(145deg, var(--operator-2), var(--operator));
+  color: var(--on-operator);
+  font-size: 24px;
+  box-shadow: 0 4px 12px hsl(var(--h) 80% 50% / 0.35);
+}
+
+.btn.operator:hover {
+  background: var(--operator-hover);
+}
+
+/* Highlights the operator that is currently selected */
+.btn.operator.active {
+  background: var(--active-bg);
+  color: var(--operator);
+  outline: 2px solid var(--operator);
+}
+
+.btn.equals {
+  background: linear-gradient(145deg, var(--equals-2), var(--equals));
+  color: #fff;
+  font-size: 24px;
+  box-shadow: 0 4px 12px hsl(var(--h2) 70% 40% / 0.35);
+}
+
+.btn.equals:hover {
+  background: var(--equals-hover);
+}
+
+.hint {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ===== History panel ===== */
+.history {
+  width: 260px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 28px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.history-header h2 {
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.clear-history {
+  border: none;
+  background: none;
+  color: var(--operator);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-list {
+  list-style: none;
+  overflow-y: auto;
+  max-height: 450px;
+}
+
+.history-list li {
+  padding: 11px 14px;
+  border-radius: 14px;
+  margin-bottom: 9px;
+  background: var(--screen);
+  cursor: pointer;
+  text-align: right;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.history-list li:hover {
+  background: var(--btn-hover);
+  transform: translateX(-2px);
+}
+
+.history-list .h-expr {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.history-list .h-result {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.history-list .empty {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  cursor: default;
+  background: none;
+}
+
+.history-list .empty:hover {
+  background: none;
+  transform: none;
+}
+
+/* Small screens: stack the panels */
+@media (max-width: 640px) {
+  .calculator,
+  .history {
+    width: 100%;
+    max-width: 370px;
+  }
+}
+
+</style>
+</head>
+<body>
+
+  <main class="app">
+
+    <!-- ===== Calculator ===== -->
+    <section class="calculator" aria-label="Calculator">
+
+      <div class="top-bar">
+        <span class="title">Calculator</span>
+        <div id="palette" class="palette" aria-label="Color theme">
+          <button class="swatch" data-palette="ocean"  style="--sh:225;--sh2:160" aria-label="Ocean theme"></button>
+          <button class="swatch" data-palette="sunset" style="--sh:20;--sh2:345"  aria-label="Sunset theme"></button>
+          <button class="swatch" data-palette="forest" style="--sh:152;--sh2:42"  aria-label="Forest theme"></button>
+          <button class="swatch" data-palette="grape"  style="--sh:268;--sh2:320" aria-label="Grape theme"></button>
+          <button class="swatch" data-palette="rose"   style="--sh:342;--sh2:195" aria-label="Rose theme"></button>
+        </div>
+        <button id="theme-toggle" class="theme-btn" aria-label="Switch theme">🌙</button>
+      </div>
+
+      <!-- Screen: small line for the expression, big line for the number -->
+      <div class="screen">
+        <div id="expression" class="expression"></div>
+        <div id="current" class="current">0</div>
+      </div>
+
+      <!-- Keypad: every button has a data-action (what it does) and sometimes a data-value -->
+      <div id="keypad" class="keypad">
+        <button class="btn function" data-action="clear">AC</button>
+        <button class="btn function" data-action="backspace">⌫</button>
+        <button class="btn function" data-action="percent">%</button>
+        <button class="btn operator" data-action="operator" data-value="/">÷</button>
+
+        <button class="btn" data-action="digit" data-value="7">7</button>
+        <button class="btn" data-action="digit" data-value="8">8</button>
+        <button class="btn" data-action="digit" data-value="9">9</button>
+        <button class="btn operator" data-action="operator" data-value="*">×</button>
+
+        <button class="btn" data-action="digit" data-value="4">4</button>
+        <button class="btn" data-action="digit" data-value="5">5</button>
+        <button class="btn" data-action="digit" data-value="6">6</button>
+        <button class="btn operator" data-action="operator" data-value="-">−</button>
+
+        <button class="btn" data-action="digit" data-value="1">1</button>
+        <button class="btn" data-action="digit" data-value="2">2</button>
+        <button class="btn" data-action="digit" data-value="3">3</button>
+        <button class="btn operator" data-action="operator" data-value="+">+</button>
+
+        <button class="btn function" data-action="negate">±</button>
+        <button class="btn" data-action="digit" data-value="0">0</button>
+        <button class="btn" data-action="dot">.</button>
+        <button class="btn equals" data-action="equals">=</button>
+      </div>
+
+      <p class="hint">Tip: you can also use your keyboard</p>
+    </section>
+
+    <!-- ===== History panel ===== -->
+    <aside class="history" aria-label="History">
+      <div class="history-header">
+        <h2>History</h2>
+        <button id="clear-history" class="clear-history">Clear</button>
+      </div>
+      <ul id="history-list" class="history-list"></ul>
+    </aside>
+
+  </main>
+
+  <script>
+// ==========================================
+//  Calculator logic
+// ==========================================
+
+// ----- 1. Grab the elements we need from the page -----
+const currentEl = document.getElementById("current");       // big number
+const expressionEl = document.getElementById("expression"); // small line above
+const keypad = document.getElementById("keypad");
+const historyList = document.getElementById("history-list");
+const clearHistoryBtn = document.getElementById("clear-history");
+const themeToggle = document.getElementById("theme-toggle");
+
+// ----- 2. The calculator's "memory" (state) -----
+let currentValue = "0";     // what is shown on the big screen (kept as text)
+let previousValue = null;   // the first number, saved when an operator is pressed
+let operator = null;        // + - * /
+let waitingForSecond = false; // true right after pressing an operator
+let justCalculated = false;   // true right after pressing =
+let history = [];             // list of past calculations
+
+// How operators are shown to the user
+const symbols = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+
+// ----- 3. Showing things on the screen -----
+function updateScreen() {
+  currentEl.textContent = currentValue;
+
+  // Make big numbers smaller so they fit
+  if (currentValue.length > 12) {
+    currentEl.style.fontSize = "24px";
+  } else if (currentValue.length > 8) {
+    currentEl.style.fontSize = "30px";
+  } else {
+    currentEl.style.fontSize = "40px";
+  }
+
+  // Small line: "12 +" while the user types the second number
+  if (operator !== null && previousValue !== null) {
+    expressionEl.textContent = previousValue + " " + symbols[operator];
+  } else {
+    expressionEl.textContent = "";
+  }
+
+  highlightOperator();
+}
+
+// Highlight the operator button that is currently selected
+function highlightOperator() {
+  document.querySelectorAll(".btn.operator").forEach(function (btn) {
+    const isActive = waitingForSecond && btn.dataset.value === operator;
+    btn.classList.toggle("active", isActive);
+  });
+}
+
+// ----- 4. Typing numbers -----
+function inputDigit(digit) {
+  // Start fresh if the last thing was an operator or a result
+  if (waitingForSecond || justCalculated) {
+    currentValue = "0";
+    waitingForSecond = false;
+    justCalculated = false;
+  }
+
+  if (currentValue.length >= 15) return; // limit the length
+
+  // Replace the starting 0, otherwise add the digit at the end
+  currentValue = currentValue === "0" ? digit : currentValue + digit;
+  updateScreen();
+}
+
+function inputDot() {
+  if (waitingForSecond || justCalculated) {
+    currentValue = "0";
+    waitingForSecond = false;
+    justCalculated = false;
+  }
+
+  // Only one dot is allowed in a number
+  if (!currentValue.includes(".")) {
+    currentValue += ".";
+  }
+  updateScreen();
+}
+
+// ----- 5. Choosing an operator (+ - × ÷) -----
+function chooseOperator(nextOperator) {
+  // If the user already typed "5 + 3" and now presses another operator,
+  // calculate the first part first (so 5 + 3 × 2 works step by step)
+  if (operator !== null && !waitingForSecond) {
+    const ok = calculate(false);
+    if (!ok) return;
+  }
+
+  // If the user changes their mind (presses + then ×), just swap it
+  previousValue = currentValue;
+  operator = nextOperator;
+  waitingForSecond = true;
+  justCalculated = false;
+  updateScreen();
+}
+
+// ----- 6. The actual maths -----
+function compute(a, b, op) {
+  switch (op) {
+    case "+": return a + b;
+    case "-": return a - b;
+    case "*": return a * b;
+    case "/": return a / b;
+  }
+}
+
+// Returns true if it worked, false if there was an error (like ÷ 0)
+function calculate(addToHistory) {
+  if (operator === null || waitingForSecond) return true;
+
+  const a = parseFloat(previousValue);
+  const b = parseFloat(currentValue);
+
+  // Dividing by zero is not allowed - show a friendly message
+  if (operator === "/" && b === 0) {
+    showError("Can't divide by 0");
+    return false;
+  }
+
+  let result = compute(a, b, operator);
+
+  // Fixes things like 0.1 + 0.2 = 0.30000000000000004
+  result = parseFloat(result.toPrecision(12));
+
+  if (addToHistory) {
+    addHistory(previousValue + " " + symbols[operator] + " " + currentValue, result);
+  }
+
+  currentValue = String(result);
+  previousValue = null;
+  operator = null;
+  waitingForSecond = false;
+  justCalculated = true;
+  updateScreen();
+  return true;
+}
+
+function equals() {
+  calculate(true);
+}
+
+function showError(message) {
+  currentValue = message;
+  previousValue = null;
+  operator = null;
+  waitingForSecond = false;
+  justCalculated = true;
+  updateScreen();
+  currentEl.style.fontSize = "24px";
+}
+
+// ----- 7. Other buttons -----
+function clearAll() {
+  currentValue = "0";
+  previousValue = null;
+  operator = null;
+  waitingForSecond = false;
+  justCalculated = false;
+  updateScreen();
+}
+
+function backspace() {
+  if (waitingForSecond || justCalculated) return;
+
+  // Remove the last character; go back to 0 if nothing is left
+  currentValue = currentValue.length > 1 ? currentValue.slice(0, -1) : "0";
+  if (currentValue === "-") currentValue = "0";
+  updateScreen();
+}
+
+function percent() {
+  currentValue = String(parseFloat(currentValue) / 100);
+  updateScreen();
+}
+
+function negate() {
+  if (currentValue === "0") return;
+  currentValue = currentValue.startsWith("-")
+    ? currentValue.slice(1)
+    : "-" + currentValue;
+  updateScreen();
+}
+
+// ----- 8. History -----
+function addHistory(expression, result) {
+  history.unshift({ expression: expression, result: result }); // newest first
+  if (history.length > 20) history.pop();                      // keep last 20
+  saveHistory();
+  renderHistory();
+}
+
+function renderHistory() {
+  historyList.innerHTML = "";
+
+  if (history.length === 0) {
+    historyList.innerHTML = '<li class="empty">No calculations yet</li>';
+    return;
+  }
+
+  history.forEach(function (item) {
+    const li = document.createElement("li");
+    li.innerHTML =
+      '<span class="h-expr">' + item.expression + " =</span>" +
+      '<span class="h-result">' + item.result + "</span>";
+
+    // Clicking an old result puts it back on the screen
+    li.addEventListener("click", function () {
+      currentValue = String(item.result);
+      previousValue = null;
+      operator = null;
+      waitingForSecond = false;
+      justCalculated = true;
+      updateScreen();
+    });
+
+    historyList.appendChild(li);
+  });
+}
+
+// localStorage keeps data even after the page is refreshed
+function saveHistory() {
+  localStorage.setItem("calcHistory", JSON.stringify(history));
+}
+
+function loadHistory() {
+  const saved = localStorage.getItem("calcHistory");
+  if (saved) history = JSON.parse(saved);
+}
+
+clearHistoryBtn.addEventListener("click", function () {
+  history = [];
+  saveHistory();
+  renderHistory();
+});
+
+// ----- 9. Handling button clicks -----
+// One listener on the whole keypad; we check which button was clicked
+keypad.addEventListener("click", function (event) {
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  const action = button.dataset.action;
+  const value = button.dataset.value;
+
+  switch (action) {
+    case "digit":     inputDigit(value); break;
+    case "dot":       inputDot(); break;
+    case "operator":  chooseOperator(value); break;
+    case "equals":    equals(); break;
+    case "clear":     clearAll(); break;
+    case "backspace": backspace(); break;
+    case "percent":   percent(); break;
+    case "negate":    negate(); break;
+  }
+});
+
+// ----- 10. Keyboard support -----
+document.addEventListener("keydown", function (event) {
+  const key = event.key;
+
+  if (key >= "0" && key <= "9") {
+    inputDigit(key);
+    flash('[data-action="digit"][data-value="' + key + '"]');
+  } else if (key === ".") {
+    inputDot();
+    flash('[data-action="dot"]');
+  } else if (["+", "-", "*", "/"].includes(key)) {
+    event.preventDefault(); // stops "/" from opening browser search
+    chooseOperator(key);
+    flash('[data-action="operator"][data-value="' + key + '"]');
+  } else if (key === "Enter" || key === "=") {
+    event.preventDefault();
+    equals();
+    flash('[data-action="equals"]');
+  } else if (key === "Backspace") {
+    backspace();
+    flash('[data-action="backspace"]');
+  } else if (key === "Escape") {
+    clearAll();
+    flash('[data-action="clear"]');
+  } else if (key === "%") {
+    percent();
+    flash('[data-action="percent"]');
+  }
+});
+
+// Makes the on-screen button "press down" when a keyboard key is used
+function flash(selector) {
+  const btn = document.querySelector(selector);
+  if (!btn) return;
+  btn.classList.add("pressed");
+  setTimeout(function () {
+    btn.classList.remove("pressed");
+  }, 120);
+}
+
+// ----- 11. Dark / light theme -----
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("calcTheme", theme);
+}
+
+themeToggle.addEventListener("click", function () {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  setTheme(isDark ? "light" : "dark");
+});
+
+// ----- 12. Start the app -----
+setTheme(localStorage.getItem("calcTheme") || "light");
+loadHistory();
+renderHistory();
+updateScreen();
+
+</script>
+  <script>
+// ==========================================
+//  Color theme picker (separate from calculator logic)
+// ==========================================
+const paletteBox = document.getElementById("palette");
+
+function setPalette(name) {
+  // CSS reads this attribute and switches all the colors
+  document.documentElement.setAttribute("data-palette", name);
+
+  // Show a ring around the selected dot
+  paletteBox.querySelectorAll(".swatch").forEach(function (dot) {
+    dot.classList.toggle("selected", dot.dataset.palette === name);
+  });
+
+  localStorage.setItem("calcPalette", name);
+}
+
+paletteBox.addEventListener("click", function (event) {
+  const dot = event.target.closest(".swatch");
+  if (dot) setPalette(dot.dataset.palette);
+});
+
+// Load the saved palette (or start with "ocean")
+setPalette(localStorage.getItem("calcPalette") || "ocean");
+
+</script>
+</body>
+</html>
